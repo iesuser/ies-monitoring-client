@@ -21,7 +21,7 @@ class HTTPClient(asyncore.dispatcher):
         asyncore.dispatcher.__init__(self)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connect((host, port))
-        self.buffer = "test message"
+        self.buffer = b"test message"
 
     def handle_connect(self):
         print("handle_connect")
