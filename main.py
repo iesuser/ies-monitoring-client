@@ -24,23 +24,23 @@ class HTTPClient(asyncore.dispatcher):
         self.buffer = "test message"
 
     def handle_connect(self):
-    	print("handle_connect")
+        print("handle_connect")
         pass
 
     def handle_close(self):
-    	print("handle_close")
+        print("handle_close")
         self.close()
 
     def handle_read(self):
-    	print("handle_read")
-        print self.recv(8192)
+        print("handle_read")
+        print(self.recv(8192))
 
     def writable(self):
-    	print("writable")
+        print("writable")
         return (len(self.buffer) > 0)
 
     def handle_write(self):
-    	print("handle_write")
+        print("handle_write")
         sent = self.send(self.buffer)
         self.buffer = self.buffer[sent:]
 
