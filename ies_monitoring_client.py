@@ -32,7 +32,7 @@ logger.setLevel(logging.DEBUG)
 # FileHandler - ის შექმნა. დონის და ფორმატის განსაზღვრა
 log_file_handler = logging.FileHandler(log_filename)
 log_file_handler.setLevel(logging.DEBUG)
-log_file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s \n")
+log_file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 log_file_handler.setFormatter(log_file_formatter)
 logger.addHandler(log_file_handler)
 
@@ -50,16 +50,19 @@ def connect_to_ies_monitoring_server():
     # შევქმნათ სოკეტი
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    # დავუკავშირდეთ ies_monitoring_server-ს
-    connection.connect((server_ip, server_port))
-
-    # დავაბრუნოთ connection ობიექტი
-    return connection
+    # დავუკავშირდეთ ies_monitoring_server-ს და დავაბრუნოთ connection ობიექტი
+    try:
+        connection.connect((server_ip, server_port))
+        logger.debug("დავუკავშირდით სერვერს: " + str(connection.getpeername()))
+        return connection
+    except Exception as ex:
+        logger.error("ვერ ვუკავშირდებით სერვერს\n" + str(ex))
 
 
 def connection_close(connection):
     """ხურავს (კავშირს სერვერთან) პარამეტრად გადაცემულ connection socket ობიექტს"""
 
+    logger.debug("სერვერთან კავშირის დახურვა: " + str(connection.getpeername()))
     connection.shutdown(socket.SHUT_RDWR)
     connection.close()
 
@@ -128,6 +131,7 @@ def wait_for_server_response(connection, message_id, resend_try_number, resend_d
                 # წასაშლელია
                 print("resend count = ", sent_message_count)
 
+                logger.debug("სერვერიდან არ მოსულა შეტყობინების მიღების დასტური: " + str(sent_messages[message_id]["message_id"]))
                 # ხელახლა გავაგზავნოთ შეტყობინება
                 resend_message(sent_messages[message_id], resend_try_number,
                                resend_delay, sent_message_count, using_threading)
@@ -142,6 +146,7 @@ def wait_for_server_response(connection, message_id, resend_try_number, resend_d
         # სერვერმა მიიღო შეტყობინება
         if received_message_id in sent_messages:
             print(":::::::" + received_message_id)
+            logger.debug("სერვერმა მიიღო შემდეგი შეტყობინება :" + received_message_id)
 
             # წავშალოთ ინფორმაცია (dictionary) გაგზავნილ შეტყობინებაზე
             # sent_messages-დან
@@ -185,7 +190,11 @@ def send_message_task(message_id, message_type, text, resend_try_number,
     sent_messages[message_id] = message_data
 
     # გავაგზავნოთ შეტყობინება
-    connection.send(dictionary_to_bytes(message_data))
+    try:
+        connection.send(dictionary_to_bytes(message_data))
+        logger.debug("სერვერზე გაიგზავნა შემდეგი შეტყობინება: " + str(message_data))
+    except Exception as ex:
+        logger.error("სერვერზე ვერ გაიგზავნა შემდეგი შეტყობინება: " + str(message_data) + "\n" + str(ex))
 
     # ვიყენებთ თუ არა threading-ს
     if using_threading:
@@ -212,7 +221,7 @@ def send_message_using_threading(message_id, message_type, text, resend_try_numb
 def send_message(message_type, text, resend_try_number=3, resend_delay=3,
                  sent_message_count=1, using_threading=True, message_id=False):
     """
-    უნქციის საშუალებით შეგვიძლია ies_monitoring_server-ს გავუგზავნოთ შეტყობინება
+    ფუნქციის საშუალებით შეგვიძლია ies_monitoring_server-ს გავუგზავნოთ შეტყობინება
     პარამეტრები:
     message_type - მესიჯის ტიპი
     text - შეტყობინების ტექსტი
@@ -245,6 +254,7 @@ def resend_message(message_data, resend_try_number, resend_delay, sent_message_c
     # წავიკითხოთ text-ი message_data dictionary-დან
     text = message_data["text"]
 
+    logger.debug("შეტყობინება იგზავნება ხელახლა " + "მე " + str(sent_message_count) + " - ჯერ")
     # შეტყობინების გაგზავნა
     send_message(message_type, text, resend_try_number, resend_delay,
                  sent_message_count, using_threading, message_id=message_id)
@@ -262,10 +272,10 @@ def start_wait_for_server_response_thread(connection, message_id, resend_try_num
 
 
 if __name__ == "__main__":
-    # send_message("blockkk", "ბ", using_threading=True)
+    # send_message("block", "ბ", using_threading=True)
     # send_message("aaaa", "სერვერი დაიწვა", using_threading=True)
     i = 1
     while i <= 10:
-        time.sleep(0.01)
-        send_message("aaaa", "სერვერი დაიწვა", using_threading=True)
+        # time.sleep(0.01)
+        send_message("block", "სერვერი დაიწვა", using_threading=True)
         i += 1
