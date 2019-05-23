@@ -7,16 +7,34 @@ import threading
 import time
 import datetime
 import uuid
+import logging
 
 # ies_monitoring_server ის ip-ი მისამართი
-server_ip = "10.0.0.16"
+server_ip = "10.0.0.20"
+
 # ies_monitoring_server ის port-ი
 server_port = 12345
+
 # sent_messages list-ში ვინახავთ თითოეული გაგზავნილი მესიჯის დროს
 # დაგენერირებულ uuid-ს და მიმდინარე დროს
 sent_messages = {}
+
 # მესიჯის buffer_size
 buffer_size = 8192
+
+# log ფაილის დასახელება
+log_filename = "imc_log"
+
+# logger შექმნა
+logger = logging.getLogger('ies_monitoring_client_logger')
+logger.setLevel(logging.DEBUG)
+
+# FileHandler - ის შექმნა. დონის და ფორმატის განსაზღვრა
+log_file_handler = logging.FileHandler(log_filename)
+log_file_handler.setLevel(logging.DEBUG)
+log_file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s \n")
+log_file_handler.setFormatter(log_file_formatter)
+logger.addHandler(log_file_handler)
 
 
 def string_to_datetime(date_time_str):
@@ -34,7 +52,7 @@ def connect_to_ies_monitoring_server():
 
     # დავუკავშირდეთ ies_monitoring_server-ს
     connection.connect((server_ip, server_port))
-    
+
     # დავაბრუნოთ connection ობიექტი
     return connection
 
@@ -88,7 +106,6 @@ def wait_for_server_response(connection, message_id, resend_try_number, resend_d
                 sent_message_count = sent_messages[
                     message_id]["sent_message_count"] + 1
 
-                # თუ შევამოწმოთ თუ შეტყოვინების გაგზავნა ვცადეთ resend_try_number
                 # თუ შეტყობინების გაგზავნა მოხდა resend_try_number ჯერ
                 # შევწყვიტოთ ხელახლა გაგზავნა
                 if sent_message_count > resend_try_number:
@@ -139,7 +156,7 @@ def wait_for_server_response(connection, message_id, resend_try_number, resend_d
 
 def send_message_task(message_id, message_type, text, resend_try_number,
                       resend_delay, sent_message_count, using_threading):
-    """ ფუნქციას იყენებს send_message ფუნქცია და მისი საშუალებით 
+    """ ფუნქციას იყენებს send_message ფუნქცია და მისი საშუალებით
         ies_monitoring_server-ს შეგვიძლია გავუგზავნოთ შეტყობინება """
 
     # დავუკავშირდეთ სერვერს
@@ -159,7 +176,9 @@ def send_message_task(message_id, message_type, text, resend_try_number,
         "message_type": message_type,
         "text": text,
         "sent_message_datetime": sent_message_datetime,
-        "sent_message_count": sent_message_count
+        "sent_message_count": sent_message_count,
+        "client_ip": connection.getsockname()[0],
+        "client_script_name": sys.argv[0].strip("./")
     }
 
     # sent_messages dictionary -ში ჩავამატოთ მიმდინარე მესიჯის უნიკალური Id-ი და დრო
@@ -190,7 +209,6 @@ def send_message_using_threading(message_id, message_type, text, resend_try_numb
     send_message_thread.start()
 
 
-
 def send_message(message_type, text, resend_try_number=3, resend_delay=3,
                  sent_message_count=1, using_threading=True, message_id=False):
     """
@@ -200,7 +218,7 @@ def send_message(message_type, text, resend_try_number=3, resend_delay=3,
     text - შეტყობინების ტექსტი
     resend_try_number - იმ შემთხვევაში თუ სერვერმა ვერ მიიღო შეტყობინება რამდენჯერ ცადოს ხელახლა გაგზავნა
     resend_delay - იმ შემთხვევაში თუ სერვერმა ვერ მიიღო შეტყობინება რამდენი წუთის მერე ცადოს ხელახლა გაგზავნა
-    using_threading - ფუნქცია გაეშვას ცალკე Thread-ით თუ არა. თუ გვინდა რომ ფუნქცია გაეშვას thread-ის გარეშე 
+    using_threading - ფუნქცია გაეშვას ცალკე Thread-ით თუ არა. თუ გვინდა რომ ფუნქცია გაეშვას thread-ის გარეშე
                       მივუთითოთ using_threading=False. using_threading პარამეტრის default მნიშვნელობა არის True
     """
 
@@ -242,6 +260,12 @@ def start_wait_for_server_response_thread(connection, message_id, resend_try_num
     # გავუშვათ wait_for_server_response_thread-ი
     wait_for_server_response_thread.start()
 
+
 if __name__ == "__main__":
-    send_message("blockkk", "ბ", using_threading=False)
-    send_message("aaaa", "სერვერი დაიწვა", using_threading=False)
+    # send_message("blockkk", "ბ", using_threading=True)
+    # send_message("aaaa", "სერვერი დაიწვა", using_threading=True)
+    i = 1
+    while i <= 10:
+        time.sleep(0.01)
+        send_message("aaaa", "სერვერი დაიწვა", using_threading=True)
+        i += 1
