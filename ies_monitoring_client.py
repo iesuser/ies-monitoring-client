@@ -10,7 +10,7 @@ import uuid
 import logging
 
 # ies_monitoring_server ის ip-ი მისამართი
-server_ip = "10.0.0.20"
+server_ip = "10.0.0.173"
 
 # ies_monitoring_server ის port-ი
 server_port = 12345
@@ -23,7 +23,7 @@ sent_messages = {}
 buffer_size = 8192
 
 # log ფაილის დასახელება
-log_filename = "imc_log"
+log_filename = "log"
 
 # logger შექმნა
 logger = logging.getLogger('ies_monitoring_client_logger')
@@ -57,6 +57,7 @@ def connect_to_ies_monitoring_server():
         return connection
     except Exception as ex:
         logger.error("ვერ ვუკავშირდებით სერვერს\n" + str(ex))
+        return False
 
 
 def connection_close(connection):
@@ -88,12 +89,16 @@ def wait_for_server_response(connection, message_id, resend_try_number, resend_d
         # წიკლის შეჩერება 0.2 წამით
         time.sleep(0.2)
 
-        # წავიკითხოთ connection ობიექტზე მიღებუი ინფორმაცია
-        # წაკითხვა ხდება bytes ტიპში (connection.recv აბრუნებს bytes ობიექტს)
-        received_message_bytes = connection.recv(buffer_size)
+        # შევამოწმოთ თუ სერვერთან გვაქვს კავშირი
+        if connection is not False:
+            # წავიკითხოთ connection ობიექტზე მიღებუი ინფორმაცია
+            # წაკითხვა ხდება bytes ტიპში (connection.recv აბრუნებს bytes ობიექტს)
+            received_message_bytes = connection.recv(buffer_size)
 
-        # bytes გადავიყვანოთ string ტიპში
-        received_message_id = received_message_bytes.decode("utf-8")
+            # bytes გადავიყვანოთ string ტიპში
+            received_message_id = received_message_bytes.decode("utf-8")
+        else:
+            received_message_id = ""
 
         # შევამოწმოთ თუ სერვერისგან მივიღეთ შეტყობინება
         if received_message_id == "":
@@ -106,14 +111,15 @@ def wait_for_server_response(connection, message_id, resend_try_number, resend_d
             # წუთზე მეტი
             if message_response_delay > datetime.timedelta(seconds=resend_delay):
                 # დავთვალოთ მერამდენედ ვაგზავნით ამ კონკრეტულ შეტყობინებას
-                sent_message_count = sent_messages[
-                    message_id]["sent_message_count"] + 1
+                sent_message_count = sent_messages[message_id]["sent_message_count"] + 1
 
                 # თუ შეტყობინების გაგზავნა მოხდა resend_try_number ჯერ
                 # შევწყვიტოთ ხელახლა გაგზავნა
                 if sent_message_count > resend_try_number:
-                    # კავშირის დახურვა
-                    connection_close(connection)
+                    # შევამოწმოთ თუ სერვერთან გვაქვს კავშირი
+                    if connection is not False:
+                        # კავშირის დახურვა
+                        connection_close(connection)
 
                     # წავშალოთ ინფორმაცია (dictionary) გაგზავნილ შეტყობინებაზე
                     # sent_messages-დან
@@ -125,8 +131,10 @@ def wait_for_server_response(connection, message_id, resend_try_number, resend_d
                     # და გამოვდივართ ციკლიდან
                     break
 
-                # კავშირის დახურვა
-                connection_close(connection)
+                # შევამოწმოთ თუ სერვერთან გვაქვს კავშირი
+                if connection is not False:
+                    # კავშირის დახურვა
+                    connection_close(connection)
 
                 # წასაშლელია
                 print("resend count = ", sent_message_count)
@@ -182,19 +190,22 @@ def send_message_task(message_id, message_type, text, resend_try_number,
         "text": text,
         "sent_message_datetime": sent_message_datetime,
         "sent_message_count": sent_message_count,
-        "client_ip": connection.getsockname()[0],
         "client_script_name": sys.argv[0].strip("./")
     }
 
+    # შევამოწმოთ თუ სერვერთან გვაქვს კავშირი
+    if connection is not False:
+        message_data["client_ip"] = connection.getsockname()[0]
+
+        # გავაგზავნოთ შეტყობინება
+        try:
+            connection.send(dictionary_to_bytes(message_data))
+            logger.debug("სერვერზე გაიგზავნა შემდეგი შეტყობინება: " + str(message_data))
+        except Exception as ex:
+            logger.error("სერვერზე ვერ გაიგზავნა შემდეგი შეტყობინება: " + str(message_data) + "\n" + str(ex))
+
     # sent_messages dictionary -ში ჩავამატოთ მიმდინარე მესიჯის უნიკალური Id-ი და დრო
     sent_messages[message_id] = message_data
-
-    # გავაგზავნოთ შეტყობინება
-    try:
-        connection.send(dictionary_to_bytes(message_data))
-        logger.debug("სერვერზე გაიგზავნა შემდეგი შეტყობინება: " + str(message_data))
-    except Exception as ex:
-        logger.error("სერვერზე ვერ გაიგზავნა შემდეგი შეტყობინება: " + str(message_data) + "\n" + str(ex))
 
     # ვიყენებთ თუ არა threading-ს
     if using_threading:
