@@ -10,7 +10,7 @@ import uuid
 import logging
 
 # ies_monitoring_server ის ip-ი მისამართი
-server_ip = "10.0.0.173"
+server_ip = "10.0.0.132"
 
 # ies_monitoring_server ის port-ი
 server_port = 12345
@@ -53,10 +53,10 @@ def connect_to_ies_monitoring_server():
     # დავუკავშირდეთ ies_monitoring_server-ს და დავაბრუნოთ connection ობიექტი
     try:
         connection.connect((server_ip, server_port))
-        logger.debug("დავუკავშირდით სერვერს: " + str(connection.getpeername()))
+        logger.debug("სერვერთან დამყარდა კავშირი: " + str(connection.getpeername()))
         return connection
     except Exception as ex:
-        logger.error("ვერ ვუკავშირდებით სერვერს\n" + str(ex))
+        logger.error("სერვერთან კავშირი ვერ დამყარდა. Exception: " + str(ex))
         return False
 
 
@@ -135,11 +135,15 @@ def wait_for_server_response(connection, message_id, resend_try_number, resend_d
                 if connection is not False:
                     # კავშირის დახურვა
                     connection_close(connection)
+                    logger.error("სერვერთან კავშირი დამყარდა, მაგრამ არ მოსულა შეტყობინების"
+                                 " მიღების დასტური: " + sent_messages[message_id]["message_id"])
+                else:
+                    logger.error("სერვერთან კავშირი ვერ დამყარდა. message_id: {" +
+                                 sent_messages[message_id]["message_id"] + "}")
 
                 # წასაშლელია
                 print("resend count = ", sent_message_count)
 
-                logger.debug("სერვერიდან არ მოსულა შეტყობინების მიღების დასტური: " + str(sent_messages[message_id]["message_id"]))
                 # ხელახლა გავაგზავნოთ შეტყობინება
                 resend_message(sent_messages[message_id], resend_try_number,
                                resend_delay, sent_message_count, using_threading)
@@ -154,7 +158,7 @@ def wait_for_server_response(connection, message_id, resend_try_number, resend_d
         # სერვერმა მიიღო შეტყობინება
         if received_message_id in sent_messages:
             print(":::::::" + received_message_id)
-            logger.debug("სერვერმა მიიღო შემდეგი შეტყობინება :" + received_message_id)
+            logger.debug("სერვერმა გამოაგზავნა შეტყობინების მიღების დასტური. message_id: {" + received_message_id + "}")
 
             # წავშალოთ ინფორმაცია (dictionary) გაგზავნილ შეტყობინებაზე
             # sent_messages-დან
@@ -265,7 +269,7 @@ def resend_message(message_data, resend_try_number, resend_delay, sent_message_c
     # წავიკითხოთ text-ი message_data dictionary-დან
     text = message_data["text"]
 
-    logger.debug("შეტყობინება იგზავნება ხელახლა " + "მე " + str(sent_message_count) + " - ჯერ")
+    logger.debug("შეტყობინება {" + message_id + "} იგზავნება ხელახლა მე " + str(sent_message_count) + " - ჯერ")
     # შეტყობინების გაგზავნა
     send_message(message_type, text, resend_try_number, resend_delay,
                  sent_message_count, using_threading, message_id=message_id)
@@ -286,7 +290,7 @@ if __name__ == "__main__":
     # send_message("block", "ბ", using_threading=True)
     # send_message("aaaa", "სერვერი დაიწვა", using_threading=True)
     i = 1
-    while i <= 10:
+    while i <= 1:
         # time.sleep(0.01)
-        send_message("block", "სერვერი დაიწვა", using_threading=True)
+        send_message("block", "სერვერი დაიწვა", resend_delay=1, using_threading=True)
         i += 1
