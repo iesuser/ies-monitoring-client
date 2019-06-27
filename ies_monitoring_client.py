@@ -10,7 +10,7 @@ import uuid
 import logging
 
 # ies_monitoring_server ის ip-ი მისამართი
-server_ip = "10.0.0.132"
+server_ip = "10.0.0.158"
 
 # ies_monitoring_server ის port-ი
 server_port = 12345
@@ -171,7 +171,7 @@ def wait_for_server_response(connection, message_id, resend_try_number, resend_d
             break
 
 
-def send_message_task(message_id, message_type, text, resend_try_number,
+def send_message_task(message_id, message_type, message_title, text, resend_try_number,
                       resend_delay, sent_message_count, using_threading):
     """ ფუნქციას იყენებს send_message ფუნქცია და მისი საშუალებით
         ies_monitoring_server-ს შეგვიძლია გავუგზავნოთ შეტყობინება """
@@ -191,10 +191,12 @@ def send_message_task(message_id, message_type, text, resend_try_number,
     message_data = {
         "message_id": message_id,
         "message_type": message_type,
+        "message_title": message_title,
         "text": text,
         "sent_message_datetime": sent_message_datetime,
         "sent_message_count": sent_message_count,
-        "client_script_name": sys.argv[0].strip("./")
+        "client_script_name": sys.argv[0].strip("./"),
+        "who_am_i": "ies_monitoring_client"
     }
 
     # შევამოწმოთ თუ სერვერთან გვაქვს კავშირი
@@ -222,18 +224,18 @@ def send_message_task(message_id, message_type, text, resend_try_number,
             connection, message_id, resend_try_number, resend_delay, False)
 
 
-def send_message_using_threading(message_id, message_type, text, resend_try_number, resend_delay, sent_message_count):
+def send_message_using_threading(message_id, message_type, message_title, text, resend_try_number, resend_delay, sent_message_count):
     """ thread-ის გამოყენებით შეტყობინების გაგზავნა. """
 
     # შევქმნათ thred-ი send_message_task ფუნქციის საშუალებით
     send_message_thread = threading.Thread(target=send_message_task, args=(
-        message_id, message_type, text, resend_try_number, resend_delay, sent_message_count, True))
+        message_id, message_type, message_title, text, resend_try_number, resend_delay, sent_message_count, True))
 
     # გავუშვათ send_message_thread-ი
     send_message_thread.start()
 
 
-def send_message(message_type, text, resend_try_number=3, resend_delay=3,
+def send_message(message_type, message_title, text, resend_try_number=3, resend_delay=3,
                  sent_message_count=1, using_threading=True, message_id=False):
     """
     ფუნქციის საშუალებით შეგვიძლია ies_monitoring_server-ს გავუგზავნოთ შეტყობინება
@@ -249,11 +251,11 @@ def send_message(message_type, text, resend_try_number=3, resend_delay=3,
     # ვიყენებთ თუ არა threading-ს
     if using_threading:
         # send_message_task გავუშვათ ცალკე thread-ში send_message_using_threading ფუნქციის გამოძახებით
-        send_message_using_threading(message_id, message_type, text, resend_try_number,
+        send_message_using_threading(message_id, message_type, message_title, text, resend_try_number,
                                      resend_delay, sent_message_count)
     else:
         # გავუშვათ send_message_task ფუნქცია Thread-ის გარეშე
-        send_message_task(message_id, message_type, text, resend_try_number,
+        send_message_task(message_id, message_type, message_title, text, resend_try_number,
                           resend_delay, sent_message_count, using_threading=False)
 
 
@@ -266,12 +268,15 @@ def resend_message(message_data, resend_try_number, resend_delay, sent_message_c
     # წავიკითხოთ message_type-ი message_data dictionary-დან
     message_type = message_data["message_type"]
 
+    # წავიკითხოთ message_title-ი message_data dictionary-დან
+    message_title = message_data["message_title"]
+
     # წავიკითხოთ text-ი message_data dictionary-დან
     text = message_data["text"]
 
     logger.debug("შეტყობინება {" + message_id + "} იგზავნება ხელახლა მე " + str(sent_message_count) + " - ჯერ")
     # შეტყობინების გაგზავნა
-    send_message(message_type, text, resend_try_number, resend_delay,
+    send_message(message_type, message_title, text, resend_try_number, resend_delay,
                  sent_message_count, using_threading, message_id=message_id)
 
 
@@ -292,5 +297,7 @@ if __name__ == "__main__":
     i = 1
     while i <= 1:
         # time.sleep(0.01)
-        send_message("block", "სერვერი დაიწვა", resend_delay=1, using_threading=True)
+        send_message("block", "სერვერზე მოხდა დროის არევა", "სერვერზე მოხდა დროის არევა "
+                     "ან არქივში ვერ მოიძებნა წინა დღის არქივი სერვერის დრო : 2019-04-02 02:00:04 "
+                     "ელფოსტა გამოიგზავნა iesresource-ის დაარქივებისას", resend_delay=1, using_threading=True)
         i += 1
