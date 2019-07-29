@@ -2,15 +2,20 @@
 # -*- coding: utf-8 -*-
 import sys
 import socket
-import json
 import threading
 import time
 import datetime
 import uuid
 import logging
+import pickle
+
+"""
+    1. print("SMS გაგზავნა") ჩასმულია ქვემოთ სადაც უნდა გაიგზავნოს SMS-ი
+    2. send_message ფუნქციას ქონდეს მეილზეც გაგზავნის საშუალება ან იყოს ცალკე ფუნქციად
+"""
 
 # ies_monitoring_server ის ip-ი მისამართი
-server_ip = "10.0.0.158"
+server_ip = "10.0.0.177"
 
 # ies_monitoring_server ის port-ი
 server_port = 12345
@@ -21,6 +26,9 @@ sent_messages = {}
 
 # მესიჯის buffer_size
 buffer_size = 8192
+
+# მესიჯის ჰედერის სიგრძე
+HEADERSIZE = 10
 
 # log ფაილის დასახელება
 log_filename = "log"
@@ -68,20 +76,25 @@ def connection_close(connection):
     connection.close()
 
 
-def dictionary_to_bytes(dictionary_message):
-    """
-    dictionary ტიპის ობიექტი გადაყავს bytes ტიპში
-    რადგან socket ობიექტის გამოყენებით მონაცემები იგზავნება bytes ტიპში
-    მოსახერხებელია რომ გვქონდეს ფუნქციები რომელიც dictionary-ის გადაიყვანს
-    bytes ტიპში და პირიქით
-    """
+def dictionary_message_to_bytes(message):
+    """ ფუნქციას dictionary ტიპის მესიჯი გადაყავს bytes ტიპში და თავში უმატებს header-ს """
 
-    return bytes(json.dumps(dictionary_message), 'utf-8')
+    # dictionary გადადის bytes ტიპში (serialization)
+    message_bytes = pickle.dumps(message)
+
+    # მესიჯის სიგრძე დათვლა
+    message_length = len(message_bytes)
+
+    # header-ი გადავიყვანოთ ბაიტებში და დავუმატოთ გადაყვანილი მესიჯი byte-ებში
+    message_bytes = bytes(str(message_length).ljust(HEADERSIZE), 'utf-8') + message_bytes
+
+    # ფუნქცია აბრუნებს მესიჯს გადაყვანილს ბაიტებში თავისი header-ით
+    return message_bytes
 
 
 def wait_for_server_response(connection, message_id, resend_try_number, resend_delay, using_threading):
     """ყოველი გაგზავნილი შეტყობინებისთვის ეშვება wait_for_server_response ფუნქცია რომელიც
-    ელოდება სერვერისგან პასუხს იმის დასტურად რომ სერვერმა მიიღო შეტყობინება
+    ელოდება სერვერისგან პასუხს იმის დასტურად რომ სერვერმა მიიღო შეტყობინება.
     იმ შემთხვევაში თუ სერვერიდან პასუხი არ მოვიდა ფუნქცია თავდიდან ცდილობს გააგზავნოს
     შეტყობინება."""
 
@@ -205,7 +218,7 @@ def send_message_task(message_id, message_type, message_title, text, resend_try_
 
         # გავაგზავნოთ შეტყობინება
         try:
-            connection.send(dictionary_to_bytes(message_data))
+            connection.send(dictionary_message_to_bytes(message_data))
             logger.debug("სერვერზე გაიგზავნა შემდეგი შეტყობინება: " + str(message_data))
         except Exception as ex:
             logger.error("სერვერზე ვერ გაიგზავნა შემდეგი შეტყობინება: " + str(message_data) + "\n" + str(ex))
@@ -296,7 +309,7 @@ if __name__ == "__main__":
     # send_message("aaaa", "სერვერი დაიწვა", using_threading=True)
     i = 1
     while i <= 1:
-        # time.sleep(0.01)
+        time.sleep(0.01)
         send_message("block", "სერვერზე მოხდა დროის არევა", "სერვერზე მოხდა დროის არევა "
                      "ან არქივში ვერ მოიძებნა წინა დღის არქივი სერვერის დრო : 2019-04-02 02:00:04 "
                      "ელფოსტა გამოიგზავნა iesresource-ის დაარქივებისას", resend_delay=1, using_threading=True)
