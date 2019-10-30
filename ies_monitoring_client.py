@@ -15,7 +15,7 @@ import pickle
 """
 
 # ies_monitoring_server ის ip-ი მისამართი
-server_ip = "10.0.0.177"
+server_ip = "10.0.0.194"
 
 # ies_monitoring_server ის port-ი
 server_port = 12345
@@ -312,5 +312,5 @@ if __name__ == "__main__":
         time.sleep(0.01)
         send_message("block", "სერვერზე მოხდა დროის არევა", "სერვერზე მოხდა დროის არევა "
                      "ან არქივში ვერ მოიძებნა წინა დღის არქივი სერვერის დრო : 2019-04-02 02:00:04 "
-                     "ელფოსტა გამოიგზავნა iesresource-ის დაარქივებისას", resend_delay=1, using_threading=True)
+                     "ელფოსტა გამოიგზავნა iesresource-ის დაარქივებისას", resend_delay=1, using_threading=False)
         i += 1
